@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ValidationError,
   attemptTwice,
-  parseFinal,
+  parseFinalPicks,
   parseJson,
   parseSearchPlan,
   parseVote,
@@ -73,39 +73,105 @@ describe("parseVote — failure modes seen on a live run", () => {
   });
 });
 
-describe("parseFinal", () => {
-  const finalJson = (over: Record<string, unknown> = {}) =>
+describe("parseFinalPicks", () => {
+  const picksJson = (over: Record<string, unknown> = {}) =>
     JSON.stringify({
-      title: "Arcade bar + late tacos",
-      steps: [{ time: "7:00pm", candidateId: "c1", what: "start here" }],
-      compromise: "Maya gave up the early night.",
+      picks: [
+        { candidateId: "c1", appeals: "Maya — real vegan menu.", doesntAppeal: "Dev — closes at 10." },
+        { candidateId: "c2", appeals: "Dev — late sets.", doesntAppeal: "Sam — far too loud." },
+      ],
       ...over,
     });
 
-  it("accepts steps that reference winners", () => {
-    expect(parseFinal(finalJson(), winners).steps[0]?.candidateId).toBe("c1");
+  it("accepts distinct picks that reference winners", () => {
+    expect(parseFinalPicks(picksJson(), winners).picks).toHaveLength(2);
   });
 
-  it("rejects a step referencing a candidate that did not win", () => {
-    const bad = finalJson({ steps: [{ time: "7:00pm", candidateId: "c5", what: "x" }] });
-    expect(() => parseFinal(bad, winners)).toThrow(/not one of the winners/);
+  it("rejects a pick referencing a candidate that did not win", () => {
+    const bad = picksJson({ picks: [{ candidateId: "c5", appeals: "a", doesntAppeal: "b" }] });
+    expect(() => parseFinalPicks(bad, winners)).toThrow(/not one of the winners/);
   });
 
   it("rejects a hallucinated candidate id outright", () => {
-    const bad = finalJson({ steps: [{ time: "7:00pm", candidateId: "c42", what: "x" }] });
-    expect(() => parseFinal(bad, winners)).toThrow(/c42 is not one of the winners/);
+    const bad = picksJson({ picks: [{ candidateId: "c42", appeals: "a", doesntAppeal: "b" }] });
+    expect(() => parseFinalPicks(bad, winners)).toThrow(/c42 is not one of the winners/);
   });
 
-  it("requires a compromise line", () => {
-    expect(() => parseFinal(finalJson({ compromise: "" }), winners)).toThrow(/compromise is required/);
+  it("rejects the same spot suggested twice — they must be distinct", () => {
+    const bad = picksJson({
+      picks: [
+        { candidateId: "c1", appeals: "a", doesntAppeal: "b" },
+        { candidateId: "c1", appeals: "c", doesntAppeal: "d" },
+      ],
+    });
+    expect(() => parseFinalPicks(bad, winners)).toThrow(/suggested twice/);
   });
 
-  it("requires a title", () => {
-    expect(() => parseFinal(finalJson({ title: "  " }), winners)).toThrow(/title is required/);
+  it("requires both sides of the appeal for every pick", () => {
+    const noAppeal = picksJson({ picks: [{ candidateId: "c1", appeals: "  ", doesntAppeal: "b" }] });
+    expect(() => parseFinalPicks(noAppeal, winners)).toThrow(/missing "appeals"/);
+
+    const noObjection = picksJson({ picks: [{ candidateId: "c1", appeals: "a", doesntAppeal: "" }] });
+    expect(() => parseFinalPicks(noObjection, winners)).toThrow(/missing "doesntAppeal"/);
   });
 
-  it("requires at least one step", () => {
-    expect(() => parseFinal(finalJson({ steps: [] }), winners)).toThrow(/non-empty array/);
+  it("rejects an empty pick list", () => {
+    expect(() => parseFinalPicks(picksJson({ picks: [] }), winners)).toThrow(/non-empty array/);
+  });
+
+  it("can require a minimum number of picks", () => {
+    expect(() => parseFinalPicks(picksJson(), winners, 3)).toThrow(/at least 3 picks, got 2/);
+  });
+
+  it("rejects candidate ids leaking into reader-facing text", () => {
+    const inAppeals = picksJson({
+      picks: [{ candidateId: "c1", appeals: "Maya voted yes on c1.", doesntAppeal: "b" }],
+    });
+    expect(() => parseFinalPicks(inAppeals, winners)).toThrow(/leaked into appeals/);
+
+    const inObjection = picksJson({
+      picks: [{ candidateId: "c1", appeals: "a", doesntAppeal: "Dev voted no on c6 and c13." }],
+    });
+    expect(() => parseFinalPicks(inObjection, winners)).toThrow(/leaked into doesntAppeal/);
+  });
+
+  it("rejects an answer that opens by restating the venue name", () => {
+    const bad = picksJson({
+      picks: [
+        {
+          candidateId: "c1",
+          appeals: "Venue 1 appeals to Maya and Nazar because it is vegan.",
+          doesntAppeal: "Dev. Closes early.",
+        },
+      ],
+    });
+    expect(() => parseFinalPicks(bad, winners)).toThrow(/restates the venue name/);
+  });
+
+  it("allows the venue name later in the sentence", () => {
+    const ok = picksJson({
+      picks: [
+        {
+          candidateId: "c1",
+          appeals: "Maya and Nazar — Venue 1 is fully vegan and nothing is over $20.",
+          doesntAppeal: "Dev. Closes early.",
+        },
+      ],
+    });
+    expect(parseFinalPicks(ok, winners).picks[0]?.appeals).toMatch(/^Maya and Nazar/);
+  });
+
+  it("leaves ordinary prose alone", () => {
+    const ok = picksJson({
+      picks: [
+        {
+          candidateId: "c1",
+          appeals: "Maya and Nazar. Real vegan al pastor, nothing over $20.",
+          doesntAppeal: "Dev. Closes early, no music.",
+        },
+      ],
+    });
+    expect(parseFinalPicks(ok, winners).picks[0]?.appeals).toMatch(/^Maya and Nazar/);
   });
 });
 

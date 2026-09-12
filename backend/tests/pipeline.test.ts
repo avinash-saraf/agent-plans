@@ -18,9 +18,11 @@ const reply = (req: ChatRequest): string => {
   }
   const allowed = req.system.match(/Allowed candidateIds: (.+)/)?.[1]?.split(", ") ?? [];
   return JSON.stringify({
-    title: "A night",
-    steps: allowed.map((id, i) => ({ time: `${7 + i}:00pm`, candidateId: id, what: "go here" })),
-    compromise: "Nazar gave up the late set.",
+    picks: allowed.map((id) => ({
+      candidateId: id,
+      appeals: "Maya and Nazar. Cheap and actually vegan.",
+      doesntAppeal: "Dev. Nothing happening after ten.",
+    })),
   });
 };
 
@@ -92,14 +94,27 @@ describe("runPlan", () => {
 
   it("only ever emits urls that came back from search", async () => {
     const { queries, result } = run();
-    const { plan } = await result;
+    const { picks } = await result;
     expect(queries.length).toBe(3);
-    for (const step of plan!.steps) expect(step.url).toMatch(/^https:\/\/venue\.test\//);
+    for (const pick of picks!) expect(pick.url).toMatch(/^https:\/\/venue-\d+-\d+\.test\/$/);
   });
 
-  it("names a compromise", async () => {
-    const { plan } = await run().result;
-    expect(plan!.compromise).toMatch(/Nazar/);
+  it("suggests 3-5 distinct spots, each with both sides", async () => {
+    const { picks } = await run().result;
+    expect(picks!.length).toBeGreaterThanOrEqual(3);
+    expect(picks!.length).toBeLessThanOrEqual(5);
+    expect(new Set(picks!.map((p) => p.url)).size).toBe(picks!.length);
+    for (const pick of picks!) {
+      expect(pick.appeals).not.toBe("");
+      expect(pick.doesntAppeal).not.toBe("");
+    }
+  });
+
+  it("carries no times and no ordering language", async () => {
+    const { transcript, picks } = await run().result;
+    const prose = picks!.flatMap((p) => [p.appeals, p.doesntAppeal]).join(" ") + transcript.at(-1)!.text;
+    expect(prose).not.toMatch(/\d{1,2}:\d{2}\s*(am|pm)/i);
+    expect(prose).not.toMatch(/\bstart here\b|\bthen head\b|\bafterwards\b/i);
   });
 
   it("throws when search comes back empty rather than inventing venues", async () => {
@@ -144,6 +159,46 @@ describe("the isolation invariant", () => {
   });
 });
 
+describe("the winners, end to end", () => {
+  it("gives each person a spot they asked for, across all three searches", async () => {
+    // Each member champions a venue from a different search, and one member is
+    // an outlier whose pick the other three veto.
+    const favourite = new Map([
+      ["Maya", 0],
+      ["Dev", 5],
+      ["Sam", 10],
+      ["Nazar", 1],
+    ]);
+
+    const { chat } = fakeChat((req) => {
+      if (req.system.startsWith("You are the agent for")) {
+        const ids = candidateIds(req.user);
+        const name = [...favourite.keys()].find((n) => req.system.includes(`agent for ${n}`))!;
+        const mine = ids[favourite.get(name)!]!;
+        const theirs = [...favourite.values()].filter((i) => i !== favourite.get(name));
+        return JSON.stringify({
+          yes: [mine],
+          maybe: ids.filter((id, i) => id !== mine && !theirs.includes(i)),
+          no: theirs.map((i) => ids[i]!),
+          top3: [mine],
+        });
+      }
+      return reply(req);
+    });
+
+    const { search } = fakeSearch();
+    const { picks } = await runPlan({ members, city: "Austin", chat, search, models });
+
+    const hosts = picks!.map((p) => new URL(p.url).hostname);
+    expect(new Set(hosts).size).toBe(hosts.length);
+
+    // Dev's pick is vetoed by the other three and would score -2 under pure
+    // net-yes. It still has to be on the list.
+    expect(hosts).toContain("venue-2-0.test");
+    expect(new Set(hosts.map((h) => h.split("-")[1])).size).toBe(3);
+  });
+});
+
 describe("the corrective retry, end to end", () => {
   it("recovers a run when one agent drops a candidate on its first try", async () => {
     let firstTryForDev = true;
@@ -159,12 +214,12 @@ describe("the corrective retry, end to end", () => {
     });
 
     const { search } = fakeSearch();
-    const { transcript, plan } = await runPlan({ members, city: "Austin", chat, search, models });
+    const { transcript, picks } = await runPlan({ members, city: "Austin", chat, search, models });
 
     // Seven calls, not six: one retry. And the run still completes.
     expect(calls).toHaveLength(7);
     expect(transcript.map((t) => t.kind)).toEqual(["search", "vote", "vote", "vote", "vote", "final"]);
-    expect(plan).not.toBeNull();
+    expect(picks).not.toBeNull();
 
     const devCalls = calls.filter((c) => c.system.includes("agent for Dev"));
     expect(devCalls[1]?.user).toMatch(/previous reply was rejected/);

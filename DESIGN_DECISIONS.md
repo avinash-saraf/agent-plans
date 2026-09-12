@@ -125,9 +125,9 @@ reason, and URLs are looked up from our own candidate array in `hydratePlan()`.
 
 ## 7. The tally is plain code and the orchestrator only narrates
 
-**Decision.** [backend/src/tally.ts](backend/src/tally.ts) is 20 lines of array methods,
-exactly as CONTEXT.md specifies. Net yes minus no, `maybe` worth zero, ties broken on top3
-appearances, nothing eliminated.
+**Decision.** [backend/src/tally.ts](backend/src/tally.ts) is array methods, no model.
+Net yes minus no, `maybe` worth zero, ties broken on top3 appearances, nothing eliminated.
+Scoring is exactly CONTEXT.md's; winner *selection* is coverage-first (§17).
 
 **Why.** Straight from the spec, and it is the right call: the decision is deterministic,
 free, instant, and explainable to a judge in one sentence. The final LLM turn is told the
@@ -278,7 +278,7 @@ host and there is no API base URL to configure or forget in production.
 
 ## 12. Testing: 90 tests, written alongside the code
 
-**Decision.** Vitest in both packages. 86 backend, 22 frontend, plus 3 database tests that
+**Decision.** Vitest in both packages. 118 backend, 26 frontend, plus 3 database tests that
 skip unless `DATABASE_URL` is set. Written module by module and run before the next module
 was started.
 
@@ -286,15 +286,15 @@ was started.
 
 | Layer | Tests | What it protects |
 | --- | --- | --- |
-| `candidates` | 7 | The 200-char trim, url dedupe, the 15 cap — the prompt-size guard |
-| `tally` | 9 | Net yes, `maybe` = 0, tiebreak, "can't empty", no mutation |
-| `validate` | 24 | All four rules, corrective retry, and both live failure modes |
+| `candidates` | 13 | The 200-char trim, url dedupe, the 15 cap, query provenance |
+| `tally` | 21 | Net yes, `maybe` = 0, tiebreak, no mutation, **coverage + spread** |
+| `validate` | 31 | All rules, corrective retry, live failure modes, id leak, name echo |
 | `voteText` | 4 | The transcript line built in code is deterministic |
-| `pipeline` | 14 | 6 calls, model routing, transcript order, retry recovery, **the isolation invariant** |
+| `pipeline` | 16 | 6 calls, model routing, transcript order, retry recovery, coverage, **the isolation invariant** |
 | `store` | 12 | Slug separation, join order, bound params, idempotent DDL |
 | `server` | 7 | Real routing, 400s, and demo mode touching nothing |
 | `demo` | 5 | The fixture still satisfies the contract it is standing in for |
-| frontend | 22 | Slug parsing, reveal order, `kind` styling, form rules, error path |
+| frontend | 26 | Slug parsing, reveal order, `kind` styling, form rules, error path, no-itinerary rendering |
 
 **One deliberate omission.** There is no test that calls OpenRouter or Exa for real. Those
 would need keys, cost money, and fail on conference wifi — the exact failure the fixture
@@ -381,19 +381,115 @@ moment the process exits.
 
 ---
 
-## 17. Known tradeoff: winners can all come from one category
+## 17. Selection is coverage-first, not consensus
 
-**Observed, not fixed.** Across live runs the three winners often land in the same category
-(three vegan restaurants, no music, nothing late). The tally is behaving exactly as
-specified — three of the four tolerate vegan food, Dev is outvoted, and the final turn
-names him — but a plan of three dinners in a row is a weaker demo than a plan with an arc.
+**CONTEXT.md's rule.** `winners = ranked.slice(0, 3)` — the three highest net-yes scores.
+It is the right rule for picking *one thing a group will do together*. It is the wrong
+rule for a list of suggestions, and two live runs showed why.
 
-`winners = ranked.slice(0, 3)` is CONTEXT.md's spec, verbatim, and it explicitly blesses
-this outcome: "a candidate three people love and one hates still scores +2 and can win —
-which is correct, and the final turn is where that dissent gets named."
+**Failure one: it concentrates.** Scoring is per-candidate and context-free, so if a
+category appeals to a majority then *every* venue in that category outscores everything
+else. Runs returned three, then four, vegan restaurants — near-duplicates of each other,
+with nothing in the list to choose between.
 
-The fix, if you want it, is a few lines in [tally.ts](backend/src/tally.ts): pick the top
-scorer, then require each subsequent winner to come from a different query bucket or
-hostname. That is a deliberate spec deviation and a product call, so it is flagged here
-rather than made quietly. Broadening the search prompt (§8's second fix) already helps —
-the candidate pool is now genuinely mixed — but the tally can still concentrate the winners.
+**Failure two, worse: it deletes the minority.** A spot one person loves and three veto
+scores **negative**, precisely *because* it is polarising. So the one venue Dev would
+actually show up to could never appear, and every card read "Dev won't like this" with
+nothing anywhere for Dev. A product whose whole pitch is four people with conflicting
+needs had quietly become a vegan restaurant finder.
+
+I made this worse before I made it better: an intermediate version skipped negative-scoring
+candidates outright, on the reasoning that you should not suggest something the group
+rejected. That is sound for a single decision and exactly backwards here — it filtered out
+the only interesting spots. The live run is what caught it.
+
+**The rule now.** Four passes, in [tally.ts](backend/src/tally.ts):
+
+1. **one champion per person**, walking members in order — each person's own highest
+   preference that is still available. This is the one place an individual's ranking
+   outranks the group's score, and it is what guarantees everybody appears somewhere.
+2. fill toward `MAX_PICKS` by score, across unused searches and unused sites
+3. fill toward `MAX_PICKS` by score, unused sites only
+4. only if still under `MIN_PICKS`, drop the remaining fussiness
+
+**What survives from the spec.** The tally still decides and the orchestrator still only
+narrates — no LLM is involved in choosing. Scoring is untouched: `rank()` is CONTEXT.md's
+formula character for character. The top scorer still takes a slot. What changed is which
+of the ranked candidates fill the *other* slots.
+
+**Query provenance.** Candidates carry the index of the query that found them
+([candidates.ts](backend/src/candidates.ts)); the pipeline used to `.flat()` the result
+sets and throw that away. Since the orchestrator aims one query per clashing person (§8),
+that index is the group's own notion of "a different kind of place" — better than any
+category list I could hardcode, because it comes from the four blurbs.
+
+**Hostname is preferred, never absolute.** Two urls on one host can be a venue's homepage
+and its events page (one spot, counted twice) or five events on one listings site (five
+spots, counted once). Preferring fresh hosts handles the first; pass 4 stops the second
+from starving the list down to a single suggestion. `www.` is stripped so a site cannot
+beat itself.
+
+**Result.** A live run now returns two music venues for Dev, two vegan spots for Maya, a
+quiet cafe for Sam, and a cheap option for Nazar — five distinct places, everyone covered.
+
+**This is a deliberate deviation from CONTEXT.md**, flagged before it was made and made on
+request. Nineteen tests pin it, including the exact regression: a spot scoring −2 because
+three of four vetoed it still has to appear.
+
+## 18. Internal ids never reach the reader
+
+**Decision.** `parseFinal` rejects a plan whose `title`, `compromise` or any step's `what`
+contains a bare candidate id (`/\bc\d{1,2}\b/`).
+
+**Why.** A live run produced: *"Sam gave up a quieter night... even though they voted no on
+c6 and c13."* `c6` is plumbing — meaningless to the person reading it, and it makes the
+product look like a debug dump on the one screen that is the entire demo.
+
+The final prompt now says the ids are internal and that `title`, `what` and `compromise`
+must use venue names. The validation rule is the belt to that suspenders: a model that
+ignores the instruction gets the error handed back on the corrective retry (§8) and fixes
+itself, rather than shipping the leak to the screen.
+
+**Why a validator and not just a better prompt.** Prompts are advisory; this is the class of
+defect that shows up in front of a judge. The check is four lines and its failure mode is
+self-healing.
+
+---
+
+## 19. Suggestions, not an itinerary
+
+**Decision.** The output is 3-5 distinct spots. Each carries a name, a url, `appeals` and
+`doesntAppeal`. There is no time, no ordering, no overall title, and no compromise line.
+
+**Why the old shape went.** The product used to emit a sequenced evening — `7:00pm`,
+`9:00pm`, `10:40pm` — with one narrative compromise at the bottom. That is a stronger
+claim than the system can actually support: it has no opening hours, no travel times, no
+day of the week, and no idea whether two venues are forty minutes apart. Times were
+plausible-looking fabrication. The new shape only asserts what the votes actually
+established — who each place works for, and who it does not.
+
+**The two-sided explanation replaces the compromise line.** One compromise sentence for a
+whole evening forced the model to pick a single loser and editorialise. Per-spot appeal
+puts the same information where it is useful and makes it four or five times denser: every
+card names people on both sides.
+
+**Enforced, not just requested:**
+
+| Rule | Where |
+| --- | --- |
+| every pick is one of the tallied winners | `parseFinalPicks` |
+| no spot suggested twice | `parseFinalPicks` |
+| both `appeals` and `doesntAppeal` non-empty | `parseFinalPicks` |
+| no internal ids in reader-facing text | `parseFinalPicks` (§18) |
+| no opening restatement of the venue name | `parseFinalPicks` |
+| no times, no "start here / then head to" | prompt + pipeline and UI tests |
+
+The name-echo rule is the subtlest and came from a live run: the model kept opening with
+*"Fabrik Austin | Plant-Based Fine Dining appeals to Maya and Sam because..."* — spending
+the whole first line restating the heading directly above it. Rejected, it retries
+correctively (§8) and returns *"Maya and Sam — high-end plant-based, all vegan."*
+
+**The UI followed the data.** [Picks.tsx](frontend/src/components/Picks.tsx) renders an
+unordered list of cards with no time column, no step number and nothing joining one card
+to the next — a test asserts the `<ul>` and the absence of an `<ol>`, because an ordered
+list would imply a sequence that no longer exists.

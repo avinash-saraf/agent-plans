@@ -1,6 +1,6 @@
 import type { ChatPort } from "./ports.ts";
-import type { FinalPlan, Member, MemberVote, Plan, Ranked, SearchPlan } from "./types.ts";
-import { attemptTwice, correctionNote, parseFinal, parseSearchPlan } from "./validate.ts";
+import type { FinalPicks, Member, MemberVote, Pick, Ranked, SearchPlan } from "./types.ts";
+import { attemptTwice, correctionNote, parseFinalPicks, parseSearchPlan } from "./validate.ts";
 
 export const QUERY_COUNT = 3;
 
@@ -35,19 +35,25 @@ export const searchTurn = async (
 };
 
 const finalSystem = (winners: Ranked[]) =>
-  `The group has already voted and the winners below are locked. You are not choosing anything — the tally chose.
+  `The group has already voted and the spots below are locked. You are not choosing anything — the tally chose.
 
-Your job is sequencing and narrative only:
-- order the winning venues into one evening and give each a plausible time
-- write a compromise line that names a specific person and what they gave up
+For each spot, say who it appeals to and who it does not, by name.
 
-Name people directly, the way a friend would — "Maya voted no on both bars". The dissent has to show up somewhere.
+Rules:
+- Be blunt and specific. Give the reason, not a feeling: "closes at 10", "everything is $18+", "nothing vegan but fries".
+- One or two short sentences each. No hedging, no "might", no "could be fun for some".
+- Start with the people, not the venue. The name is already on screen above your text, so repeating it wastes the line. Write "Maya and Nazar — vegan menu, nothing over $20", not "Veracruz All Natural appeals to Maya and Nazar because...".
+- Name the actual people. Every person should show up somewhere across the spots.
+- If a spot genuinely works for everyone, say so in doesntAppeal — do not invent an objection.
+- These are separate suggestions, not an itinerary. Never give a time, never order them, never connect one to another ("start here", "then head to", "afterwards").
 
-Refer to venues by candidateId only. Never write a url.
+Refer to each spot by candidateId. Never write a url.
 Allowed candidateIds: ${winners.map((w) => w.id).join(", ")}
 
+The ids are internal plumbing. In "appeals" and "doesntAppeal" — the text people actually read — write venue NAMES, never an id. "Maya won't eat here", never "Maya voted no on c6".
+
 Reply with JSON only, no prose:
-{"title":"","steps":[{"time":"","candidateId":"","what":""}],"compromise":""}`;
+{"picks":[{"candidateId":"","appeals":"","doesntAppeal":""}]}`;
 
 /**
  * Orchestrator turn 2. The agents no longer speak for themselves, so this turn
@@ -59,9 +65,9 @@ export const finalTurn = async (
   members: Member[],
   chat: ChatPort,
   model: string,
-): Promise<FinalPlan> => {
+): Promise<FinalPicks> => {
   const user = JSON.stringify({
-    winners: winners.map((w) => ({ id: w.id, title: w.title, snippet: w.snippet, score: w.score })),
+    spots: winners.map((w) => ({ id: w.id, title: w.title, snippet: w.snippet, score: w.score })),
     votes: votes.map((v) => ({ name: v.name, yes: v.yes, maybe: v.maybe, no: v.no, top3: v.top3 })),
     people: members.map((m) => ({ name: m.name, about: m.context })),
   });
@@ -69,7 +75,7 @@ export const finalTurn = async (
   return attemptTwice(
     (correction) =>
       chat({ model, system: finalSystem(winners), user: correction ? user + correctionNote(correction) : user }),
-    (raw) => parseFinal(raw, winners),
+    (raw) => parseFinalPicks(raw, winners),
   );
 };
 
@@ -77,19 +83,16 @@ export const finalTurn = async (
  * Ids in, titles and urls out — looked up from our own candidate array so a
  * url can only ever be one Exa actually returned.
  */
-export const hydratePlan = (final: FinalPlan, winners: Ranked[]): Plan => ({
-  title: final.title,
-  compromise: final.compromise,
-  steps: final.steps.map((s) => {
-    const winner = winners.find((w) => w.id === s.candidateId);
+export const hydratePicks = (final: FinalPicks, winners: Ranked[]): Pick[] =>
+  final.picks.map((p) => {
+    const winner = winners.find((w) => w.id === p.candidateId);
     return {
-      time: s.time,
-      what: s.what,
-      title: winner?.title ?? s.candidateId,
+      title: winner?.title ?? p.candidateId,
       url: winner?.url ?? "",
+      appeals: p.appeals,
+      doesntAppeal: p.doesntAppeal,
     };
-  }),
-});
+  });
 
-export const finalText = (plan: Plan): string =>
-  `${plan.title} — ${plan.steps.map((s) => `${s.time} ${s.title}`).join(", ")}. ${plan.compromise}`;
+export const finalText = (picks: Pick[]): string =>
+  `${picks.length} spots worth your time: ${picks.map((p) => p.title).join(", ")}.`;

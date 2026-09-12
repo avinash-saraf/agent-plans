@@ -2,7 +2,7 @@ import type { Member, RunResult } from "./types.ts";
 
 /**
  * Demo personas. Maximum friction on purpose: if the four agents agree, every
- * candidate scores +4, the compromise line is empty and the demo is boring.
+ * candidate scores +4, every spot reads "works for everyone", and the demo is boring.
  * The conflict is the product.
  */
 export const demoMembers: Member[] = [
@@ -50,32 +50,43 @@ export const demoRun: RunResult = {
     {
       speaker: "Orchestrator",
       kind: "final",
-      text: "Tacos, jazz, then the loud one — 7:00pm Veracruz All Natural, 9:00pm The Elephant Room, 11:30pm Mohawk Austin. Sam voted no on Mohawk and is getting it anyway, because Dev put it first and nobody else vetoed it — Sam gets the quiet middle of the night in exchange.",
+      text: "5 spots worth your time: Veracruz All Natural, The Elephant Room, Mohawk Austin, Casa de Luz, Pinballz Arcade.",
     },
   ],
-  plan: {
-    title: "Tacos, jazz, then the loud one",
-    steps: [
-      {
-        time: "7:00pm",
-        what: "Start cheap. Vegan al pastor exists here, and nothing on the menu breaks Nazar's $20.",
-        title: "Veracruz All Natural",
-        url: "https://www.veracruzallnatural.com/",
-      },
-      {
-        time: "9:00pm",
-        what: "Basement jazz club. Sam can actually hear people, and the cover is small.",
-        title: "The Elephant Room",
-        url: "https://www.elephantroom.com/",
-      },
-      {
-        time: "11:30pm",
-        what: "Outdoor stage, late set. Dev's night starts here; anyone who is done can leave.",
-        title: "Mohawk Austin",
-        url: "https://www.mohawkaustin.com/",
-      },
-    ],
-    compromise:
-      "Sam gave up the most — they voted no on Mohawk and it won anyway. The jazz club at 9 is their half of the deal, and the 11:30 slot is deliberately last so leaving early costs nobody anything.",
-  },
+  picks: [
+    {
+      title: "Veracruz All Natural",
+      url: "https://www.veracruzallnatural.com/",
+      appeals:
+        "Maya and Nazar. Real vegan al pastor, not a side salad, and nothing on the menu breaks $20.",
+      doesntAppeal:
+        "Dev. It is a taco trailer that closes early — no music, nothing happening after 10.",
+    },
+    {
+      title: "The Elephant Room",
+      url: "https://www.elephantroom.com/",
+      appeals: "Sam. Basement jazz club, small room, quiet enough to actually hear people. Cover is $10.",
+      doesntAppeal:
+        "Maya gets nothing to eat beyond bar snacks, and Dev wants volume, not a jazz trio.",
+    },
+    {
+      title: "Mohawk Austin",
+      url: "https://www.mohawkaustin.com/",
+      appeals: "Dev. Outdoor stage, loud, late sets most nights. This is the whole reason he came out.",
+      doesntAppeal:
+        "Sam will not last twenty minutes. Tickets run $20-35, which is over Nazar's cap on its own.",
+    },
+    {
+      title: "Casa de Luz",
+      url: "https://www.casadeluz.org/",
+      appeals: "Maya and Sam. Entirely plant-based, calm room, no music at all.",
+      doesntAppeal: "Dev. It is a community center that serves dinner and closes. Nazar: $18 fixed plate, no cheaper option.",
+    },
+    {
+      title: "Pinballz Arcade",
+      url: "https://www.pinballz.com/",
+      appeals: "Nazar and Dev. Free entry, open till 2am, and you can spend $5 or $50.",
+      doesntAppeal: "Sam — it is a room full of noise by design. Maya: the food is fried bar stuff.",
+    },
+  ],
 };

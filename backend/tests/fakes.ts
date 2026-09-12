@@ -20,7 +20,7 @@ export const fakeSearch = (perQuery = 5): { search: SearchPort; queries: string[
     return Array.from({ length: perQuery }, (_, i): RawResult => ({
       title: `Venue ${idx}-${i}`,
       text: "page contents ".repeat(200),
-      url: `https://venue.test/${idx}-${i}`,
+      url: `https://venue-${idx}-${i}.test/`,
     }));
   });
   return { search, queries };

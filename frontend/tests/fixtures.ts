@@ -9,12 +9,24 @@ export const runResult: RunResult = {
     { speaker: "Nazar", kind: "vote", text: "6 yes, 2 maybe, 7 no — top pick: Veracruz All Natural" },
     { speaker: "Orchestrator", kind: "final", text: "Tacos, jazz, then the loud one." },
   ],
-  plan: {
-    title: "Tacos, jazz, then the loud one",
-    steps: [
-      { time: "7:00pm", what: "Cheap and vegan.", title: "Veracruz All Natural", url: "https://www.veracruzallnatural.com/" },
-      { time: "9:00pm", what: "Quiet enough to talk.", title: "The Elephant Room", url: "https://www.elephantroom.com/" },
-    ],
-    compromise: "Sam gave up the quiet night so Dev could get his set.",
-  },
+  picks: [
+    {
+      title: "Veracruz All Natural",
+      url: "https://www.veracruzallnatural.com/",
+      appeals: "Maya and Nazar. Real vegan al pastor, and nothing on the menu breaks $20.",
+      doesntAppeal: "Dev. It is a taco trailer that closes early — no music, nothing after 10.",
+    },
+    {
+      title: "The Elephant Room",
+      url: "https://www.elephantroom.com/",
+      appeals: "Sam. Small basement jazz room, quiet enough to hear people.",
+      doesntAppeal: "Maya gets bar snacks at best, and Dev wants volume.",
+    },
+    {
+      title: "Mohawk Austin",
+      url: "https://www.mohawkaustin.com/",
+      appeals: "Dev. Outdoor stage, loud, late sets most nights.",
+      doesntAppeal: "Sam will not last twenty minutes. Tickets are over Nazar's cap.",
+    },
+  ],
 };

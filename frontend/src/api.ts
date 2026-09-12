@@ -22,7 +22,7 @@ export const joinGroup = async (slug: string, name: string, context: string): Pr
  * `demo=1` serves the cached run. Conference wifi will betray you, so the
  * fixture is reachable from the UI, not just from curl.
  */
-export const runPlan = async (slug: string, city: string, demo: boolean): Promise<RunResult> =>
+export const runSuggestions = async (slug: string, city: string, demo: boolean): Promise<RunResult> =>
   (await json(
     await fetch(`/api/groups/${encodeURIComponent(slug)}/plan${demo ? "?demo=1" : ""}`, {
       method: "POST",

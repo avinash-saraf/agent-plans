@@ -154,37 +154,54 @@ body {
 .bubble--final { border-left-color: var(--final); background: #16231e; }
 .bubble--final .bubble__speaker { color: var(--final); }
 
-.plan {
+.picks {
   margin-top: 24px;
   border-top: 1px dashed var(--line);
   padding-top: 20px;
 }
-.plan__title { margin: 0 0 16px; font-size: 24px; letter-spacing: -0.02em; }
-.plan__steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
-.step { display: grid; grid-template-columns: 78px 1fr; gap: 12px; }
-.step__time { color: var(--final); font-variant-numeric: tabular-nums; font-weight: 650; }
-.step__title { color: var(--ink); font-weight: 650; text-decoration: none; border-bottom: 1px solid var(--line); }
-.step__title:hover { border-bottom-color: var(--final); }
-.step__what { margin: 4px 0 0; color: var(--ink-dim); }
 
-.plan__compromise {
-  margin: 22px 0 0;
+.picks__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+
+/* Cards, not steps: no number, no time column, nothing joining one to the next. */
+.pick {
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 14px;
-  color: var(--ink);
-}
-.plan__compromiseLabel {
-  display: block;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--ink-dim);
-  margin-bottom: 6px;
+  padding: 14px 16px;
 }
 
+.pick__title {
+  display: inline-block;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 10px;
+}
+.pick__title:hover { border-bottom-color: var(--final); }
+
+.pick__side {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  margin: 6px 0 0;
+}
+.pick__side--for { color: var(--ink); }
+.pick__side--against { color: var(--ink-dim); }
+
+.pick__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 650;
+}
+.pick__side--for .pick__label { color: var(--final); }
+.pick__side--against .pick__label { color: var(--danger); }
+
 @media (max-width: 560px) {
-  .member, .step { grid-template-columns: 1fr; gap: 2px; }
+  .member, .pick__side { grid-template-columns: 1fr; gap: 2px; }
   .bubble--vote { margin-left: 12px; }
 }

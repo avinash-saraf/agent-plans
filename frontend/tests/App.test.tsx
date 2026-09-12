@@ -62,11 +62,23 @@ describe("App", () => {
     const user = userEvent.setup();
     render(<App slug="hackathon" revealMs={1} />);
 
-    await user.click(await screen.findByRole("button", { name: /make a plan/i }));
+    await user.click(await screen.findByRole("button", { name: /find us some spots/i }));
 
     await waitFor(() => expect(screen.getAllByTestId("bubble")).toHaveLength(6));
-    expect(screen.getByRole("heading", { name: "Tacos, jazz, then the loud one" })).toBeInTheDocument();
-    expect(screen.getByText(/Sam gave up the quiet night/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Mohawk Austin" })).toBeInTheDocument();
+    expect(screen.getAllByText("works for")).toHaveLength(3);
+    expect(screen.getByText(/Dev\. It is a taco trailer/)).toBeInTheDocument();
+  });
+
+  it("suggests spots without inventing an itinerary", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<App slug="hackathon" revealMs={1} />);
+
+    await user.click(await screen.findByRole("button", { name: /find us some spots/i }));
+    await waitFor(() => expect(screen.getAllByRole("link")).toHaveLength(3));
+
+    const shown = container.querySelector(".picks")?.textContent ?? "";
+    expect(shown).not.toMatch(/\d{1,2}:\d{2}\s*(am|pm)/i);
   });
 
   it("asks for the cached fixture when running in demo mode", async () => {
@@ -91,7 +103,7 @@ describe("App", () => {
     );
 
     render(<App slug="hackathon" revealMs={1} />);
-    await user.click(await screen.findByRole("button", { name: /make a plan/i }));
+    await user.click(await screen.findByRole("button", { name: /find us some spots/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("need at least 2 people");
     expect(screen.queryAllByTestId("bubble")).toHaveLength(0);

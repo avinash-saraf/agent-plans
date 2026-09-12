@@ -1,6 +1,6 @@
 import { toCandidates } from "./candidates.ts";
 import { collectVotes } from "./agents.ts";
-import { finalText, finalTurn, hydratePlan, searchTurn } from "./orchestrator.ts";
+import { finalText, finalTurn, hydratePicks, searchTurn } from "./orchestrator.ts";
 import { pickWinners } from "./tally.ts";
 import { voteTurn } from "./voteText.ts";
 import type { Models } from "./env.ts";
@@ -31,8 +31,8 @@ export const runPlan = async ({ members, city, chat, search, models }: RunInput)
   const plan = await searchTurn(members, city, chat, models.strong);
   transcript.push({ speaker: "Orchestrator", kind: "search", text: plan.text });
 
-  const results = (await Promise.all(plan.queries.map((q) => search(q)))).flat();
-  const candidates = toCandidates(results);
+  const resultsByQuery = await Promise.all(plan.queries.map((q) => search(q)));
+  const candidates = toCandidates(resultsByQuery);
   if (candidates.length === 0) throw new Error("no candidates came back from search");
 
   const votes = await collectVotes(members, candidates, chat, models.cheap);
@@ -41,8 +41,8 @@ export const runPlan = async ({ members, city, chat, search, models }: RunInput)
   const winners = pickWinners(candidates, votes);
 
   const final = await finalTurn(winners, votes, members, chat, models.strong);
-  const hydrated = hydratePlan(final, winners);
-  transcript.push({ speaker: "Orchestrator", kind: "final", text: finalText(hydrated) });
+  const picks = hydratePicks(final, winners);
+  transcript.push({ speaker: "Orchestrator", kind: "final", text: finalText(picks) });
 
-  return { transcript, plan: hydrated };
+  return { transcript, picks };
 };

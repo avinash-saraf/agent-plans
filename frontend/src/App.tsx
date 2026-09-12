@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { JoinForm } from "./components/JoinForm.tsx";
-import { PlanCard } from "./components/PlanCard.tsx";
+import { Picks } from "./components/Picks.tsx";
 import { Transcript } from "./components/Transcript.tsx";
-import { joinGroup, listMembers, runPlan } from "./api.ts";
+import { joinGroup, listMembers, runSuggestions } from "./api.ts";
 import type { Member, RunResult } from "./types.ts";
 
 export const App = ({
@@ -38,12 +38,12 @@ export const App = ({
   };
 
   // A button and a spinner. No realtime, no streaming, no websocket.
-  const plan = async () => {
+  const suggest = async () => {
     setRunning(true);
     setError(null);
     setResult(null);
     try {
-      setResult(await runPlan(slug, "Austin", demo));
+      setResult(await runSuggestions(slug, "Austin", demo));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -79,8 +79,8 @@ export const App = ({
       </section>
 
       <section className="panel">
-        <button className="button button--go" onClick={plan} disabled={running}>
-          {running ? "the agents are arguing…" : demo ? "run the cached demo" : "make a plan"}
+        <button className="button button--go" onClick={suggest} disabled={running}>
+          {running ? "the agents are arguing…" : demo ? "run the cached demo" : "find us some spots"}
         </button>
         {running && <div className="spinner" role="status" aria-label="working" />}
         {error && <p className="error" role="alert">{error}</p>}
@@ -90,7 +90,7 @@ export const App = ({
         <section className="panel panel--transcript">
           <h2 className="panel__heading">the argument</h2>
           <Transcript turns={result.transcript} {...(revealMs === undefined ? {} : { revealMs })} />
-          {result.plan && <PlanCard plan={result.plan} />}
+          {result.picks && result.picks.length > 0 && <Picks picks={result.picks} />}
         </section>
       )}
     </main>

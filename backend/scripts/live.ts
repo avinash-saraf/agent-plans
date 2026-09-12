@@ -30,7 +30,7 @@ console.log(`planning a night in ${city} for ${demoMembers.map((m) => m.name).jo
 console.log(`models: ${models().cheap} (agents), ${models().strong} (orchestrator)\n`);
 
 const started = Date.now();
-const { transcript, plan } = await runPlan({
+const { transcript, picks } = await runPlan({
   members: demoMembers,
   city,
   chat: openRouterChat(config.openrouterKey),
@@ -43,14 +43,11 @@ for (const turn of transcript) {
   console.log(`         ${turn.text}\n`);
 }
 
-if (plan) {
-  console.log(`── ${plan.title} ──`);
-  for (const step of plan.steps) {
-    console.log(`  ${step.time.padEnd(8)} ${step.title}`);
-    console.log(`  ${" ".repeat(8)} ${step.what}`);
-    console.log(`  ${" ".repeat(8)} ${step.url}\n`);
-  }
-  console.log(`  compromise: ${plan.compromise}`);
+for (const pick of picks ?? []) {
+  console.log(`── ${pick.title}`);
+  console.log(`   ${pick.url}`);
+  console.log(`   works for:     ${pick.appeals}`);
+  console.log(`   does not:      ${pick.doesntAppeal}\n`);
 }
 
-console.log(`\ndone in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+console.log(`done in ${((Date.now() - started) / 1000).toFixed(1)}s`);

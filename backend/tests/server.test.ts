@@ -11,9 +11,11 @@ const reply = (req: ChatRequest): string => {
   if (req.system.startsWith("You are the agent for")) return scriptedVote(req.user, (i) => i % 2 === 0);
   const allowed = req.system.match(/Allowed candidateIds: (.+)/)?.[1]?.split(", ") ?? [];
   return JSON.stringify({
-    title: "A night",
-    steps: [{ time: "7:00pm", candidateId: allowed[0], what: "go" }],
-    compromise: "Sam gave up quiet.",
+    picks: allowed.map((id) => ({
+      candidateId: id,
+      appeals: "Sam. Quiet enough to talk.",
+      doesntAppeal: "Dev. Nothing live.",
+    })),
   });
 };
 
@@ -95,7 +97,9 @@ describe("POST /api/groups/:slug/plan", () => {
       "vote",
       "final",
     ]);
-    expect(res.json().plan.compromise).toBeTruthy();
+    expect(res.json().picks.length).toBeGreaterThanOrEqual(3);
+    expect(res.json().picks[0].appeals).toBeTruthy();
+    expect(res.json().picks[0].doesntAppeal).toBeTruthy();
   });
 
   it("serves the cached fixture behind ?demo=1 without touching the store or a model", async () => {
@@ -121,7 +125,7 @@ describe("POST /api/groups/:slug/plan", () => {
     const res = await server.inject({ method: "POST", url: "/api/groups/anything/plan?demo=1" });
     expect(res.statusCode).toBe(200);
     expect(res.json().transcript).toHaveLength(6);
-    expect(res.json().plan.steps).toHaveLength(3);
+    expect(res.json().picks).toHaveLength(5);
   });
 });
 

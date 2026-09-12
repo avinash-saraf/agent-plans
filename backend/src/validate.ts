@@ -1,4 +1,4 @@
-import type { Candidate, FinalPlan, Ranked, Vote } from "./types.ts";
+import type { Candidate, FinalPicks, Ranked, Vote } from "./types.ts";
 
 /** The only error type in the project. */
 export class ValidationError extends Error {
@@ -71,41 +71,87 @@ export const parseVote = (raw: string, candidates: Candidate[]): Vote => {
   return vote;
 };
 
+const ID_IN_PROSE = /\bc\d{1,2}\b/;
+
+/**
+ * Ids are internal plumbing. They leak into reader-facing text otherwise — a
+ * live run produced "they voted no on c6 and c13", which is gibberish to the
+ * person reading it and makes the one screen that is the demo look like a
+ * debug dump.
+ */
+const rejectIdLeak = (text: string, field: string): void => {
+  if (ID_IN_PROSE.test(text)) {
+    throw new ValidationError(`candidate ids leaked into ${field}: ${text.slice(0, 80)}`);
+  }
+};
+
 /**
  * The important one. Nothing else stops the final turn from inventing a
  * plausible bar with a plausible URL, and the Exa-grounding pitch dies live
  * when a judge clicks it.
+ *
+ * Also enforces that the suggestions are what the product promises: distinct
+ * spots, each with a reason for and against, and no itinerary language.
  */
-export const parseFinal = (raw: string, winners: Ranked[]): FinalPlan => {
+/**
+ * The venue name is already the heading above this text, so an answer that opens
+ * by restating it spends the whole first line saying nothing. Rejecting it is
+ * the difference between "Maya and Nazar — vegan menu, nothing over $20" and
+ * "Veracruz All Natural appeals to Maya and Nazar because it is vegan...".
+ */
+const rejectNameEcho = (text: string, title: string, field: string): void => {
+  const opener = title.toLowerCase().slice(0, 18).trim();
+  if (opener.length >= 6 && text.toLowerCase().trimStart().startsWith(opener)) {
+    throw new ValidationError(`${field} restates the venue name instead of getting to the point: ${text.slice(0, 60)}`);
+  }
+};
+
+export const parseFinalPicks = (raw: string, winners: Ranked[], min = 1): FinalPicks => {
   const obj = parseJson(raw) as Record<string, unknown>;
   if (typeof obj !== "object" || obj === null) {
     throw new ValidationError("final must be a JSON object");
   }
-  if (typeof obj.title !== "string" || obj.title.trim() === "") {
-    throw new ValidationError("title is required");
+  if (!Array.isArray(obj.picks) || obj.picks.length === 0) {
+    throw new ValidationError("picks must be a non-empty array");
   }
-  if (typeof obj.compromise !== "string" || obj.compromise.trim() === "") {
-    throw new ValidationError("compromise is required");
-  }
-  if (!Array.isArray(obj.steps) || obj.steps.length === 0) {
-    throw new ValidationError("steps must be a non-empty array");
+  if (obj.picks.length < min) {
+    throw new ValidationError(`expected at least ${min} picks, got ${obj.picks.length}`);
   }
 
   const allowed = new Set(winners.map((w) => w.id));
-  const steps = obj.steps.map((s: unknown) => {
-    const step = s as Record<string, unknown>;
-    if (typeof step?.candidateId !== "string" || !allowed.has(step.candidateId)) {
+  const seen = new Set<string>();
+
+  const picks = obj.picks.map((p: unknown) => {
+    const pick = p as Record<string, unknown>;
+
+    if (typeof pick?.candidateId !== "string" || !allowed.has(pick.candidateId)) {
       throw new ValidationError(
-        `step candidateId ${String(step?.candidateId)} is not one of the winners (${[...allowed].join(", ")})`,
+        `pick candidateId ${String(pick?.candidateId)} is not one of the winners (${[...allowed].join(", ")})`,
       );
     }
-    if (typeof step.time !== "string" || typeof step.what !== "string") {
-      throw new ValidationError("each step needs a string time and what");
+    if (seen.has(pick.candidateId)) {
+      throw new ValidationError(`${pick.candidateId} suggested twice — the spots must be distinct`);
     }
-    return { time: step.time, candidateId: step.candidateId, what: step.what };
+    seen.add(pick.candidateId);
+
+    if (typeof pick.appeals !== "string" || pick.appeals.trim() === "") {
+      throw new ValidationError(`${pick.candidateId} is missing "appeals"`);
+    }
+    if (typeof pick.doesntAppeal !== "string" || pick.doesntAppeal.trim() === "") {
+      throw new ValidationError(`${pick.candidateId} is missing "doesntAppeal"`);
+    }
+
+    rejectIdLeak(pick.appeals, "appeals");
+    rejectIdLeak(pick.doesntAppeal, "doesntAppeal");
+
+    const title = winners.find((w) => w.id === pick.candidateId)?.title ?? "";
+    rejectNameEcho(pick.appeals, title, "appeals");
+    rejectNameEcho(pick.doesntAppeal, title, "doesntAppeal");
+
+    return { candidateId: pick.candidateId, appeals: pick.appeals, doesntAppeal: pick.doesntAppeal };
   });
 
-  return { title: obj.title, steps, compromise: obj.compromise };
+  return { picks };
 };
 
 export const parseSearchPlan = (raw: string): { queries: string[]; text: string } => {

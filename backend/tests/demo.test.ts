@@ -18,13 +18,33 @@ describe("the demo fixture", () => {
     expect(speakers.sort()).toEqual(demoMembers.map((m) => m.name).sort());
   });
 
-  it("carries a compromise that names a person", () => {
-    const names = demoMembers.map((m) => m.name);
-    expect(names.some((n) => demoRun.plan!.compromise.includes(n))).toBe(true);
+  it("suggests 3-5 distinct spots", () => {
+    expect(demoRun.picks!.length).toBeGreaterThanOrEqual(3);
+    expect(demoRun.picks!.length).toBeLessThanOrEqual(5);
+    expect(new Set(demoRun.picks!.map((p) => p.url)).size).toBe(demoRun.picks!.length);
   });
 
-  it("has a real url on every step", () => {
-    for (const step of demoRun.plan!.steps) expect(step.url).toMatch(/^https:\/\/.+\..+/);
+  it("says who each spot works for and who it does not, by name", () => {
+    const names = demoMembers.map((m) => m.name);
+    for (const pick of demoRun.picks!) {
+      expect(names.some((n) => pick.appeals.includes(n))).toBe(true);
+      expect(names.some((n) => pick.doesntAppeal.includes(n))).toBe(true);
+    }
+  });
+
+  it("gives every member a spot that works for them", () => {
+    for (const member of demoMembers) {
+      expect(demoRun.picks!.some((p) => p.appeals.includes(member.name))).toBe(true);
+    }
+  });
+
+  it("has a real url on every pick", () => {
+    for (const pick of demoRun.picks!) expect(pick.url).toMatch(/^https:\/\/.+\..+/);
+  });
+
+  it("is a list of spots, not an itinerary", () => {
+    const prose = demoRun.picks!.flatMap((p) => [p.appeals, p.doesntAppeal]).join(" ");
+    expect(prose).not.toMatch(/\bstart here\b|\bthen head\b|\bafterwards\b/i);
   });
 
   it("ships four personas with genuine friction between them", () => {

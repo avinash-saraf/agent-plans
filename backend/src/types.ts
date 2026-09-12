@@ -14,6 +14,12 @@ export type Candidate = {
   title: string;
   snippet: string;
   url: string;
+  /**
+   * Index of the search query that found it. Each query is aimed at a different
+   * person's needs, so this is the group's own notion of "a different kind of
+   * place" — which is what the tally spreads the winners across.
+   */
+  bucket: number;
 };
 
 /** Raw agent output: every candidate id in exactly one bucket. */
@@ -45,22 +51,22 @@ export type TranscriptTurn = {
   text: string;
 };
 
-export type PlanStep = {
-  time: string;
-  what: string;
+/**
+ * One suggested spot. Not a step in an evening — there is no time, no order and
+ * no dependency on any other pick. See DESIGN_DECISIONS.md §19.
+ */
+export type Pick = {
   title: string;
   url: string;
-};
-
-export type Plan = {
-  title: string;
-  steps: PlanStep[];
-  compromise: string;
+  /** Who it works for, named, and why. */
+  appeals: string;
+  /** Who it does not work for, named, and why. */
+  doesntAppeal: string;
 };
 
 export type RunResult = {
   transcript: TranscriptTurn[];
-  plan: Plan | null;
+  picks: Pick[] | null;
 };
 
 /** Orchestrator turn 1 output. */
@@ -70,8 +76,6 @@ export type SearchPlan = {
 };
 
 /** Orchestrator turn 2 output — ids only, never URLs. */
-export type FinalPlan = {
-  title: string;
-  steps: { time: string; candidateId: string; what: string }[];
-  compromise: string;
+export type FinalPicks = {
+  picks: { candidateId: string; appeals: string; doesntAppeal: string }[];
 };
