@@ -1,0 +1,22 @@
+{
+  "name": "agent-plans",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Four friends, four advocate agents, real venues from Exa, one plan.",
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=24.21.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./*\" run dev",
+    "build": "pnpm --filter \"./*\" run build",
+    "test": "pnpm --filter \"./*\" run test",
+    "test:watch": "pnpm --parallel --filter \"./*\" run test:watch",
+    "typecheck": "pnpm --filter \"./*\" run typecheck"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
