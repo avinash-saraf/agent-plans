@@ -1,0 +1,203 @@
+{
+  "plan": {
+    "steps": [
+      {
+        "fit": [
+          {
+            "name": "Maya",
+            "vote": "yes",
+            "reason": "Fully vegan restaurant with proper, elevated plant-based dishes matches strict vegan diet.",
+            "memberId": "maya"
+          },
+          {
+            "name": "Dev",
+            "vote": "maybe",
+            "reason": "Vegan small plates for sharing fit relaxed socializing but possibly some noise from bar setting.",
+            "memberId": "dev"
+          },
+          {
+            "name": "Sam",
+            "vote": "no",
+            "reason": "Vegan restaurant with no indication of free or very low-cost options, likely over budget.",
+            "memberId": "sam"
+          },
+          {
+            "name": "Nazar",
+            "vote": "maybe",
+            "reason": "Vegan dining with cocktails suits social, creative evenings but energy level unclear.",
+            "memberId": "nazar"
+          }
+        ],
+        "url": "https://menu.restaurant/reverie-brooklyn-williamsburg-brooklyn-new-york-city",
+        "what": "Try creative, fully plant-based dishes and cocktails at a vegan restaurant in Williamsburg.",
+        "title": "Reverie Brooklyn, Williamsburg - Menu - Menu.Restaurant | Menus, Ratings & Restaurant Discovery Platform"
+      },
+      {
+        "fit": [
+          {
+            "name": "Maya",
+            "vote": "maybe",
+            "reason": "Outdoor promenade offers a pleasant activity but no food options specified.",
+            "memberId": "maya"
+          },
+          {
+            "name": "Dev",
+            "vote": "yes",
+            "reason": "Brooklyn Heights Promenade offers a quiet outdoor walk, matching preference for calm and friends.",
+            "memberId": "dev"
+          },
+          {
+            "name": "Sam",
+            "vote": "yes",
+            "reason": "Free outdoor park space matches interest in free activities and budget constraints.",
+            "memberId": "sam"
+          },
+          {
+            "name": "Nazar",
+            "vote": "no",
+            "reason": "Outdoor promenade lacks the energetic nightlife vibe desired for late hours.",
+            "memberId": "nazar"
+          }
+        ],
+        "url": "https://www.nycgovparks.org/parks/brooklyn-heights-promenade",
+        "what": "Take a stroll and enjoy the views along the Brooklyn Heights Promenade.",
+        "title": "Brooklyn Heights Promenade : NYC Parks"
+      }
+    ],
+    "title": "Enjoy Brooklyn: Vegan Eats & Scenic Walks",
+    "compromise": "Nazar gave up the most, as the group chose quieter and more relaxed options over late-night, high-energy venues. This plan balances energetic dining with calm outdoor time, even though it doesn't fully match Nazar's nightlife preference."
+  },
+  "evidence": {
+    "votes": [
+      {
+        "no": ["c3"],
+        "yes": ["c1", "c2"],
+        "name": "Maya",
+        "top3": ["c1", "c2", "c4"],
+        "maybe": ["c4"],
+        "reasons": {
+          "c1": "Fully vegan restaurant with proper, elevated plant-based dishes matches strict vegan diet.",
+          "c2": "Vegan Latin food with diverse plant-based options fits strong vegan food preference.",
+          "c3": "European-Asian fusion menu likely includes non-vegan dishes; no vegan focus stated.",
+          "c4": "Outdoor promenade offers a pleasant activity but no food options specified."
+        },
+        "memberId": "maya"
+      },
+      {
+        "no": ["c2", "c3"],
+        "yes": ["c4"],
+        "name": "Dev",
+        "top3": ["c4", "c1"],
+        "maybe": ["c1"],
+        "reasons": {
+          "c1": "Vegan small plates for sharing fit relaxed socializing but possibly some noise from bar setting.",
+          "c2": "Comedy shows and lively food scene imply noise, conflicting with desire for quiet meeting.",
+          "c3": "Atmosphere described as energetic and indulgent, likely too loud for quiet socializing.",
+          "c4": "Brooklyn Heights Promenade offers a quiet outdoor walk, matching preference for calm and friends."
+        },
+        "memberId": "dev"
+      },
+      {
+        "no": ["c1", "c3"],
+        "yes": ["c4"],
+        "name": "Sam",
+        "top3": ["c4", "c2"],
+        "maybe": ["c2"],
+        "reasons": {
+          "c1": "Vegan restaurant with no indication of free or very low-cost options, likely over budget.",
+          "c2": "Affordable vegan Latin food with some items around $6-$10, possibly fitting budget.",
+          "c3": "Upscale fusion restaurant likely exceeding $20 budget and no free options.",
+          "c4": "Free outdoor park space matches interest in free activities and budget constraints."
+        },
+        "memberId": "sam"
+      },
+      {
+        "no": ["c4"],
+        "yes": ["c3"],
+        "name": "Nazar",
+        "top3": ["c3", "c1", "c2"],
+        "maybe": ["c1", "c2"],
+        "reasons": {
+          "c1": "Vegan dining with cocktails suits social, creative evenings but energy level unclear.",
+          "c2": "Vegan Latin food and comedy venue open late, some energy but ends by 11 PM.",
+          "c3": "Energetic, elevated dining with cocktails fits desire for lively late-night outing.",
+          "c4": "Outdoor promenade lacks the energetic nightlife vibe desired for late hours."
+        },
+        "memberId": "nazar"
+      }
+    ],
+    "queries": [
+      "vegan restaurant Brooklyn site:restaurant homepage",
+      "Brooklyn Heights Promenade official site",
+      "Brooklyn board game cafe site:homepage"
+    ],
+    "winnerIds": ["c4", "c1"],
+    "candidates": [
+      {
+        "id": "c1",
+        "url": "https://menu.restaurant/reverie-brooklyn-williamsburg-brooklyn-new-york-city",
+        "title": "Reverie Brooklyn, Williamsburg - Menu - Menu.Restaurant | Menus, Ratings & Restaurant Discovery Platform",
+        "snippet": "Reverie Brooklyn, Williamsburg - Menu - Menu.Restaurant | Menus, Ratings & Restaurant Discovery Platform\n\nSelect location\n\n# Reverie Brooklyn, Williamsburg - Menu\n\n## A fully vegan restaurant and cocktail bar led by acclaimed chef Guy Vaknin. From the team behind Beyond Sushi and other City Roots concepts, the menu delivers elevated, globally inspired small plates designed for sharing. Standout dishes include parsnip truffle vol-au-vent, leek confit, mushroom flatbread, and yuzu cheesecake, paired with inventive cocktails and curated wines. Ideal for date nights, happy hour, or relaxed evenings with friends, Reverie blends comfort, creativity, and refinement into a memorable plant-based dini",
+        "activity": "food",
+        "venueKey": "reverie brooklyn williamsburg brooklyn ny"
+      },
+      {
+        "id": "c2",
+        "url": "https://www.vspot.restaurant/",
+        "title": "VSPOT Express | Vegan Latin Food, East Village NYC",
+        "snippet": "🌶️ VSPOT Express · Wed–Sat 5–11 PM at 12 St. Marks Place — empanadas, nachos & more.\n\nView Menu Find Us\n\nVSPOT EXPRESS12 St. Marks Place · Wed–Sat 5–11 PM\n\nMenu Support Catering Comedy Shows\n\nOrder Online\n\nOPEN WED–SAT 5–11PM · 12 ST. MARKS PLACE\n\n# VSPOT EXPRESS\n\nIS NOW SERVING OUT OF ST. MARKS COMEDY CLUB!\n\nAfter nearly 20 years in Brooklyn, VSPOT lives on in the East Village — empanadas, nachos, chicharrón, and more.\n\nWED–SAT · 5:00–11:00 PM · 12 ST. MARKS PLACE, NYC\n\n[Rice & Bean Empanada with Molida\n\n$6 Savory rice & beans with plant-based molida (seasoned ground \"beef\") in a golden, crispy shell. 1 for $6 · 2 for $10.](/menu) [Nachos with Molida 🇨🇴\n\n$17 Crispy tortilla chips loaded ",
+        "activity": "food",
+        "venueKey": "vspot express 12 st marks place east village nyc ny"
+      },
+      {
+        "id": "c3",
+        "url": "https://www.level.restaurant/",
+        "title": "Level restaurant",
+        "snippet": "Level restaurant\n\n## WELCOME TO LEVEL\n\nEUROPEAN CUISINE WITH AN ASIAN FLAIR\n\n## ENTER A WORLD OF INDULGENCE\n\nAt Level, each taste and sip transports you to a new realm of delight. Enjoy a captivating fusion of primal energy and an otherworldly atmosphere as you savor cocktails and rare wines\n\nEmbrace the space's captivating energy and let it guide you to new heights of pleasure\n\n## AN ELEVATED CULINARY EXPERIENCE\n\nOur masterful chef combines Europe antechniques with an Asian twist, tantalizing the senses\n\nTranscend the ordinary through an engaging experience that we have meticulously crafted for you\n\n2775 CONEY ISLAND AVENUE BROOKLYN, NY 11235\n\n#### Phone\n\n+1 718 684 4300\n\n#### Wed\n\n5 pm - 1",
+        "activity": "food",
+        "venueKey": "level restaurant 2775 coney island avenue brooklyn ny 11235"
+      },
+      {
+        "id": "c4",
+        "url": "https://www.nycgovparks.org/parks/brooklyn-heights-promenade",
+        "title": "Brooklyn Heights Promenade : NYC Parks",
+        "snippet": "Brooklyn Heights Promenade : NYC Parks\n\nNYC Resources 311 Office of the Mayor\n\n- Print\n- Translate this page\n\n# Brooklyn Heights Promenade\n\nJoralemon Street to Orange Street between BQE and Columbia Heights/Montague Terrace\n\nBrooklyn\n\nDirections via Google Maps\n\nShow Disclaimer\n\nThis map is designed to represent parks as they are used by the public. It should not be used to represent the legal boundaries of property under Parks jurisdiction. If you would like to view all City property under the jurisdiction of NYC Parks, please visit NYC OpenData.\n\n### Facilities\n\n### News\n\n- COME PROMENADE WITH ME\n\n## Park Information\n\n## Check out your park's Vital Signs\n\n### Clean & Safe\n\n96\n\nNo recent ca",
+        "activity": "outdoors",
+        "venueKey": "brooklyn heights promenade brooklyn heights brooklyn ny"
+      }
+    ]
+  },
+  "transcript": [
+    {
+      "kind": "search",
+      "text": "Looking for a vegan-friendly restaurant, a scenic outdoor walk for quieter conversation, and a board game cafe for affordable, energetic fun—balancing Maya’s food needs, Dev’s preference for calm, Sam’s budget, and Nazar’s desire for something lively.",
+      "speaker": "Orchestrator"
+    },
+    {
+      "kind": "vote",
+      "text": "2 yes, 1 maybe, 1 no — top pick: Reverie Brooklyn, Williamsburg - Menu - Menu.Restaurant | Menus, Ratings & Restaurant Discovery Platform.",
+      "speaker": "Maya"
+    },
+    {
+      "kind": "vote",
+      "text": "1 yes, 1 maybe, 2 no — top pick: Brooklyn Heights Promenade : NYC Parks.",
+      "speaker": "Dev"
+    },
+    {
+      "kind": "vote",
+      "text": "1 yes, 1 maybe, 2 no — top pick: Brooklyn Heights Promenade : NYC Parks.",
+      "speaker": "Sam"
+    },
+    {
+      "kind": "vote",
+      "text": "1 yes, 2 maybe, 1 no — top pick: Level restaurant.",
+      "speaker": "Nazar"
+    },
+    {
+      "kind": "final",
+      "text": "Enjoy Brooklyn: Vegan Eats & Scenic Walks. Nazar gave up the most, as the group chose quieter and more relaxed options over late-night, high-energy venues. This plan balances energetic dining with calm outdoor time, even though it doesn't fully match Nazar's nightlife preference.",
+      "speaker": "Orchestrator"
+    }
+  ],
+  "schemaVersion": 2
+}

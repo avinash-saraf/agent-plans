@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-09-12T18:52:59.118Z",
+  "city": "Brooklyn",
+  "members": [
+    {
+      "name": "Maya",
+      "context": "I’m vegan. Not “I’ll just have the fries” vegan. Proper food is the one thing I won’t compromise on. After that, I’m pretty easy."
+    },
+    {
+      "name": "Dev",
+      "context": "I want to see my friends, not shout at them over a speaker. Bookshops, quieter corners, a walk. A packed room is my cue to leave."
+    },
+    {
+      "name": "Sam",
+      "context": "I have about $20 for the whole night. I love a good plan, but my bank account has veto power. Free things are very much my thing."
+    },
+    {
+      "name": "Nazar",
+      "context": "The night starts at 10 and I would happily stay out until 3. Something with a bit of energy, please. I can stay home and be sensible any other day."
+    }
+  ],
+  "orchestrator": "openai/gpt-4.1",
+  "advocates": "openai/gpt-4.1-mini",
+  "classifier": "openai/gpt-4.1-mini",
+  "search": "Exa",
+  "candidateCount": 4,
+  "source": "Live POST /groups/hackathon/plan through the frontend proxy; sample member IDs normalized to lowercase names"
+}

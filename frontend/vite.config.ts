@@ -1,0 +1,25 @@
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    // Static license files need no hot reload and may be briefly locked by Windows scanners.
+    watch: { ignored: ['**/public/licenses/**'] },
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api(?=\/|$)/, ''),
+      },
+      '/backend-health': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+        rewrite: () => '/',
+      },
+    },
+  },
+})
