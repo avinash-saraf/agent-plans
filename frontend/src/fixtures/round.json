@@ -1,0 +1,58 @@
+{
+  "transcript": [
+    {
+      "speaker": "Orchestrator",
+      "kind": "search",
+      "text": "Vegan food for Maya. Somewhere Dev can hear a conversation. Sam’s $20 ceiling. And Nazar, who would happily stay out until 3. I’m looking around Williamsburg for a few places that overlap."
+    },
+    {
+      "speaker": "Maya",
+      "kind": "vote",
+      "text": "4 yes, 3 maybe, 8 no — top pick: Vinnie’s Pizzeria. The vegan options stay in."
+    },
+    {
+      "speaker": "Dev",
+      "kind": "vote",
+      "text": "3 yes, 4 maybe, 8 no — top pick: McNally Jackson. A bookstore beats a packed bar."
+    },
+    {
+      "speaker": "Sam",
+      "kind": "vote",
+      "text": "5 yes, 1 maybe, 9 no — top pick: Domino Park. Save the money for a slice."
+    },
+    {
+      "speaker": "Nazar",
+      "kind": "vote",
+      "text": "1 yes, 4 maybe, 10 no — top pick: Domino Park. I can work with a skyline after dark. Still voting no on an early night."
+    },
+    {
+      "speaker": "Orchestrator",
+      "kind": "final",
+      "text": "Books first, pizza to go, then the river. Maya keeps the vegan food, Dev gets room to talk, and Sam avoids a ticketed event. Nazar gives up the 3 AM finish. It’s a compromise with a good view."
+    }
+  ],
+  "plan": {
+    "title": "A bookshop, a slice, the skyline",
+    "steps": [
+      {
+        "time": "6:00 PM",
+        "what": "Meet among the shelves and find something to talk about.",
+        "title": "McNally Jackson",
+        "url": "https://www.mcnallyjackson.com/"
+      },
+      {
+        "time": "7:00 PM",
+        "what": "Pick up vegan slices to take with you. Check the current menu and prices.",
+        "title": "Vinnie’s Pizzeria",
+        "url": "https://www.vinniespizzeria.com/menu"
+      },
+      {
+        "time": "8:00 PM",
+        "what": "Walk along the waterfront and settle in for a skyline conversation.",
+        "title": "Domino Park",
+        "url": "https://www.dominopark.com/plan-your-visit"
+      }
+    ],
+    "compromise": "Nazar traded the 3 AM finish for an earlier waterfront evening so Dev could skip the loud room and Sam could skip the cover charge."
+  }
+}
