@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useEffectEvent, useRef, useState } from 'react'
 import {
   ArrowDown,
   ArrowRight,
@@ -11,6 +11,7 @@ import {
   LoaderCircle,
   MapPin,
   MessageCircle,
+  Minus,
   Plus,
   RotateCcw,
   SlidersHorizontal,
@@ -24,16 +25,24 @@ import type { AuthSession } from './lib/auth'
 import {
   DEMO_MEMBERS,
   DEMO_ROUND,
-  ROOM_STORAGE_KEY,
-  readRoom,
-  seedRoom,
+  formatPlan,
   slugFromPath,
   validateRoom,
-  type Room,
   type RoomMember,
   type RoundResult,
+  type TranscriptTurn,
 } from './lib/room'
-import { planningPath, requestRound } from './lib/planningApi'
+import { ApiError } from './lib/api'
+import {
+  getGroup,
+  createGroup,
+  saveCity,
+  savePerson,
+  removePerson,
+  makePlan,
+  plannerStatus,
+  type SharedRoom,
+} from './lib/groupsApi'
 import './App.css'
 
 type CompletedRound = { result: RoundResult; members: RoomMember[]; city: string; example: boolean }
@@ -43,13 +52,6 @@ const exampleRound = (): CompletedRound => ({
   city: 'Brooklyn',
   example: true,
 })
-function loadRoom(slug: string) {
-  try {
-    return readRoom(localStorage.getItem(ROOM_STORAGE_KEY + '.' + slug), slug)
-  } catch {
-    return seedRoom(slug)
-  }
-}
 function Dotmark({ small = false }: { small?: boolean }) {
   return (
     <span className={'dotmark' + (small ? ' small' : '')} aria-hidden="true">
@@ -67,19 +69,25 @@ function Avatar({ name, index = 0 }: { name: string; index?: number }) {
   )
 }
 function App() {
-  const [room, setRoom] = useState(() => loadRoom(slugFromPath(window.location.pathname)))
-  const [completed, setCompleted] = useState<CompletedRound | null>(() => {
-    const stored = loadRoom(slugFromPath(window.location.pathname))
-    return new URLSearchParams(location.search).get('demo') === '1' ||
-      (stored.city === 'Brooklyn' &&
-        JSON.stringify(stored.members) === JSON.stringify(DEMO_MEMBERS))
-      ? exampleRound()
-      : null
-  })
+  const [room, setRoom] = useState<SharedRoom>(() => ({
+    slug: slugFromPath(location.pathname),
+    city: 'Brooklyn',
+    members: [],
+    revision: 0,
+    run: null,
+  }))
+  const [completed, setCompleted] = useState<CompletedRound | null>(() =>
+    new URLSearchParams(location.search).get('demo') === '1' ? exampleRound() : null,
+  )
+  const [partial, setPartial] = useState<TranscriptTurn[]>([])
+  const [loading, setLoading] = useState(true)
+  const [exists, setExists] = useState<boolean | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [storageError, setStorageError] = useState('')
   const [editing, setEditing] = useState<RoomMember | 'new' | null>(null)
   const [groupDialog, setGroupDialog] = useState<'new' | 'settings' | null>(null)
   const [info, setInfo] = useState(false)
@@ -87,36 +95,88 @@ function App() {
   const [session, setSession] = useState<AuthSession | null>(null)
   const [revealed, setRevealed] = useState(6)
   const controller = useRef<AbortController | null>(null)
+  const readVersion = useRef(0)
   const conversation = useRef<HTMLElement | null>(null)
   const finished = completed && revealed >= completed.result.transcript.length
   const editable = editing && editing !== 'new' ? editing : null
+  const runningElsewhere = room.run?.status === 'running'
+  const locked = busy || saving || loading || exists === null || !!runningElsewhere
+
+  function accept(group: SharedRoom, preserveExample = false) {
+    setRoom(group)
+    setExists(true)
+    setPartial(group.run?.result ? [] : group.run?.transcript || [])
+    if (!preserveExample)
+      setCompleted(
+        group.run?.result
+          ? { result: group.run.result, city: group.city, members: group.members, example: false }
+          : null,
+      )
+    setRevealed(6)
+    setError(group.run?.status === 'failed' ? group.run.error || 'Please try planning again.' : '')
+  }
+  async function refresh(slug = room.slug, signal?: AbortSignal, preserveExample = false) {
+    const version = ++readVersion.current
+    setLoading(true)
+    if (slug !== room.slug) {
+      setExists(null)
+      setRoom({ slug, city: 'Brooklyn', members: [], revision: 0, run: null })
+    }
+    try {
+      const status = await plannerStatus().catch(() => ({ ready: false }))
+      if (!signal?.aborted && version === readVersion.current) setReady(status.ready)
+      const group = await getGroup(slug, signal)
+      if (!signal?.aborted && version === readVersion.current) accept(group, preserveExample)
+    } catch (cause) {
+      if (signal?.aborted || version !== readVersion.current) return
+      if (cause instanceof ApiError && cause.status === 404) {
+        setExists(false)
+        setRoom({ slug, city: 'Brooklyn', members: [], revision: 0, run: null })
+        setPartial([])
+        if (!preserveExample) setCompleted(null)
+        setError('')
+      } else setError(cause instanceof Error ? cause.message : 'Couldn’t load this group.')
+    } finally {
+      if (!signal?.aborted && version === readVersion.current) setLoading(false)
+    }
+  }
+
+  const loadRoute = useEffectEvent((slug: string, signal: AbortSignal, demo: boolean) =>
+    refresh(slug, signal, demo),
+  )
 
   useEffect(() => {
+    let read = new AbortController()
+    // Synchronize the server-owned room when the URL changes.
+    // oxlint-disable-next-line react/set-state-in-effect
+    void loadRoute(
+      slugFromPath(location.pathname),
+      read.signal,
+      new URLSearchParams(location.search).get('demo') === '1',
+    )
     const onPop = () => {
+      read.abort()
+      read = new AbortController()
       controller.current?.abort()
       setBusy(false)
-      setRoom(loadRoom(slugFromPath(window.location.pathname)))
-      setCompleted(new URLSearchParams(location.search).get('demo') === '1' ? exampleRound() : null)
-      setError('')
+      setGroupDialog(null)
+      setEditing(null)
+      const slug = slugFromPath(location.pathname)
+      setExists(null)
+      setRoom({ slug, city: 'Brooklyn', members: [], revision: 0, run: null })
+      setPartial([])
+      const example = new URLSearchParams(location.search).get('demo') === '1'
+      setCompleted(example ? exampleRound() : null)
+      void loadRoute(slug, read.signal, example)
     }
     window.addEventListener('popstate', onPop)
     return () => {
       window.removeEventListener('popstate', onPop)
+      read.abort()
+      readVersion.current += 1
       controller.current?.abort()
     }
   }, [])
-  useEffect(() => {
-    // This effect synchronizes browser storage and reports whether that external write succeeded.
-    try {
-      localStorage.setItem(ROOM_STORAGE_KEY + '.' + room.slug, JSON.stringify(room))
-      // oxlint-disable-next-line react/set-state-in-effect
-      setStorageError('')
-    } catch {
-      setStorageError(
-        'Your changes are available for this visit, but this browser couldn’t save them.',
-      )
-    }
-  }, [room])
   useEffect(() => {
     if (!notice) return
     const timeout = setTimeout(() => setNotice(''), 3000)
@@ -132,6 +192,7 @@ function App() {
     controller.current?.abort()
     setBusy(false)
     setCompleted(null)
+    setPartial([])
     setError('')
     if (location.search || location.hash) history.replaceState(null, '', '/g/' + room.slug)
   }
@@ -163,9 +224,16 @@ function App() {
     setError('')
     setCompleted(null)
     try {
-      const result = await requestRound({ city: room.city, members: room.members }, request.signal)
+      const next = await makePlan(room, request.signal)
       if (!request.signal.aborted) {
-        reveal({ result, members: structuredClone(room.members), city: room.city, example: false })
+        accept(next)
+        if (next.run?.result)
+          reveal({
+            result: next.run.result,
+            members: next.members,
+            city: next.city,
+            example: false,
+          })
         history.replaceState(null, '', '/g/' + room.slug)
       }
     } catch (cause) {
@@ -185,23 +253,40 @@ function App() {
       setError('Your browser couldn’t copy that. You can copy the link from the address bar.')
     }
   }
-  function saveMember(event: React.FormEvent<HTMLFormElement>) {
+  async function saveMember(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
     const name = String(data.get('name') || '').trim()
     const context = String(data.get('context') || '').trim()
     if (!name || !context) return
-    const next = { id: editable?.id || crypto.randomUUID(), name, context }
-    invalidate()
-    setRoom((current) => ({
-      ...current,
-      members: editable
-        ? current.members.map((member) => (member.id === editable.id ? next : member))
-        : [...current.members, next].slice(0, 4),
-    }))
-    setEditing(null)
+    setSaving(true)
+    setFormError('')
+    try {
+      const next = await savePerson(room, { name, context }, editable?.id)
+      invalidate()
+      accept(next)
+      setEditing(null)
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Couldn’t save this person.')
+    } finally {
+      setSaving(false)
+    }
   }
-  function saveGroup(event: React.FormEvent<HTMLFormElement>) {
+  async function deleteMember(id: string) {
+    setSaving(true)
+    setFormError('')
+    try {
+      const next = await removePerson(room, id)
+      invalidate()
+      accept(next)
+      setEditing(null)
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Couldn’t remove this person.')
+    } finally {
+      setSaving(false)
+    }
+  }
+  async function saveGroup(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
     const city = String(data.get('city') || '').trim()
@@ -209,21 +294,25 @@ function App() {
       .trim()
       .toLowerCase()
     if (!city || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return
-    invalidate()
-    if (groupDialog === 'new') {
-      let existing: Room | null = null
-      try {
-        const raw = localStorage.getItem(ROOM_STORAGE_KEY + '.' + slug)
-        if (raw) existing = readRoom(raw, slug)
-      } catch {
-        /* Storage warning is handled by the persistence effect. */
-      }
-      setRoom(existing || { slug, city, members: [] })
-      history.pushState(null, '', '/g/' + slug)
-    } else setRoom((current) => ({ ...current, city }))
-    setGroupDialog(null)
+    setSaving(true)
+    setFormError('')
+    try {
+      const next =
+        groupDialog === 'new' || !exists
+          ? await createGroup(slug, city)
+          : await saveCity(room, city)
+      invalidate()
+      accept(next)
+      if (groupDialog === 'new' || !exists) history.pushState(null, '', '/g/' + next.slug)
+      setGroupDialog(null)
+      setNotice('Saved for everyone in the group')
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : 'Couldn’t save the group.')
+    } finally {
+      setSaving(false)
+    }
   }
-  const transcript = completed?.result.transcript.slice(0, revealed) || []
+  const transcript = completed?.result.transcript.slice(0, revealed) || partial
 
   return (
     <div className="app-shell">
@@ -245,12 +334,19 @@ function App() {
           >
             <MessageCircle size={20} strokeWidth={1.6} />
           </IconButton>
-          <IconButton label="Start a group" onClick={() => setGroupDialog('new')}>
+          <IconButton
+            label="Start a group"
+            disabled={locked}
+            onClick={() => {
+              setFormError('')
+              setGroupDialog('new')
+            }}
+          >
             <Plus size={22} strokeWidth={1.6} />
           </IconButton>
         </div>
         <div className="rail-bottom">
-          <IconButton label="About this example" onClick={() => setInfo(true)}>
+          <IconButton label="About Kusama" onClick={() => setInfo(true)}>
             <CircleHelp size={19} strokeWidth={1.6} />
           </IconButton>
           <IconButton label={session ? 'Your account' : 'Sign in'} onClick={() => setAccount(true)}>
@@ -265,18 +361,31 @@ function App() {
 
       <main className="workspace">
         <header className="topbar">
-          <button className="room-switcher" onClick={() => setGroupDialog('settings')}>
+          <button
+            className="room-switcher"
+            disabled={locked}
+            onClick={() => {
+              setFormError('')
+              setGroupDialog('settings')
+            }}
+          >
             <span>{room.slug.replaceAll('-', ' ')}</span>
             <ChevronDown size={14} />
           </button>
           <div className="topbar-actions">
-            <span className="local-indicator">On this device</span>
+            <IconButton
+              label="Refresh group"
+              disabled={busy || saving || loading}
+              onClick={() => void refresh()}
+            >
+              <RotateCcw size={16} className={loading ? 'spin' : ''} />
+            </IconButton>
             <IconButton
               label="Copy group link"
               onClick={() =>
                 void copy(
                   location.origin + '/g/' + room.slug,
-                  'Group link copied · profiles stay on this device for now',
+                  'Group link copied · invite your people',
                 )
               }
             >
@@ -289,7 +398,14 @@ function App() {
           <section className="room-intro" aria-labelledby="room-title">
             <div className="intro-heading">
               <div>
-                <button className="city-button" onClick={() => setGroupDialog('settings')}>
+                <button
+                  className="city-button"
+                  disabled={locked}
+                  onClick={() => {
+                    setFormError('')
+                    setGroupDialog('settings')
+                  }}
+                >
                   <MapPin size={14} />
                   {room.city}
                   <ChevronDown size={12} />
@@ -297,14 +413,29 @@ function App() {
                 <h1 id="room-title">A plan for all of you.</h1>
               </div>
               <div className="room-controls">
-                <IconButton label="Edit group" onClick={() => setGroupDialog('settings')}>
+                <IconButton
+                  label="Edit group"
+                  disabled={locked}
+                  onClick={() => {
+                    setFormError('')
+                    setGroupDialog('settings')
+                  }}
+                >
                   <SlidersHorizontal size={19} />
                 </IconButton>
               </div>
             </div>
             <div className="people" aria-label="Group members">
               {room.members.map((member, index) => (
-                <button className="person" key={member.id} onClick={() => setEditing(member)}>
+                <button
+                  className="person"
+                  disabled={locked}
+                  key={member.id}
+                  onClick={() => {
+                    setFormError('')
+                    setEditing(member)
+                  }}
+                >
                   <div className="person-heading">
                     <Avatar name={member.name} index={index} />
                     <span>{member.name}</span>
@@ -317,7 +448,12 @@ function App() {
                 <button
                   className="person empty-person"
                   key={'empty-' + index}
-                  onClick={() => setEditing('new')}
+                  disabled={locked}
+                  onClick={() => {
+                    setFormError('')
+                    if (exists) setEditing('new')
+                    else setGroupDialog('settings')
+                  }}
                 >
                   <span className="empty-avatar">
                     <Plus size={20} />
@@ -332,20 +468,26 @@ function App() {
             </div>
             <div className="round-actions">
               <p>
-                {room.members.length === 4
-                  ? 'Everyone gets a say.'
-                  : room.members.length + ' of 4 people are here.'}
+                {loading
+                  ? 'Loading your group…'
+                  : exists === null
+                    ? 'Refresh to reconnect with your group.'
+                    : !exists
+                      ? 'Start a group. Share a link. Pull up a chair.'
+                      : room.members.length === 4
+                        ? 'Everyone gets a say.'
+                        : room.members.length + ' of 4 people are here.'}
               </p>
               <div className="round-buttons">
                 <button className="text-button" onClick={playExample} disabled={busy}>
                   <RotateCcw size={15} />
-                  <span>{completed?.example ? 'Replay example' : 'View example'}</span>
+                  <span>{completed?.example ? 'Replay demo' : 'View demo'}</span>
                 </button>
                 <button
                   className="button primary"
                   onClick={() => void run()}
-                  disabled={busy || !planningPath || room.members.length !== 4}
-                  title={!planningPath ? 'Live planning is being connected' : undefined}
+                  disabled={locked || !ready || room.members.length !== 4 || !exists}
+                  title={!ready ? 'Live planning needs its services configured' : undefined}
                 >
                   {busy ? <LoaderCircle size={17} className="spin" /> : null}
                   <span>{busy ? 'Finding a little common ground' : 'Make a plan'}</span>
@@ -353,14 +495,29 @@ function App() {
                 </button>
               </div>
             </div>
-            {!planningPath && (
+            {!ready && !loading && (
               <p className="connection-note">
-                Explore the example while live planning is being connected.
+                Live planning is temporarily unavailable. You can still build your group or explore
+                the example.
               </p>
             )}
-            {storageError && (
-              <p className="form-error" role="alert">
-                {storageError}
+            {exists === false && !loading && (
+              <button
+                className="button primary"
+                onClick={() => {
+                  setFormError('')
+                  setGroupDialog('settings')
+                }}
+              >
+                Create this group <Plus size={16} />
+              </button>
+            )}
+            {runningElsewhere && !busy && (
+              <p role="status" className="connection-note">
+                Your group is making a plan.{' '}
+                <button className="text-button" onClick={() => void refresh()}>
+                  Check progress
+                </button>
               </p>
             )}
             {error && (
@@ -389,7 +546,7 @@ function App() {
                 <h2 id="conversation-title">Around the table</h2>
                 {completed && (
                   <button className="example-badge" onClick={() => setInfo(true)}>
-                    {completed.example ? 'Example' : 'Completed'}
+                    {completed.example ? 'Saved demo' : 'Completed'}
                     <span aria-hidden="true">·</span>
                     {completed.city}
                     <ArrowUpRight size={12} />
@@ -403,18 +560,9 @@ function App() {
                   </div>
                   <h3>Four perspectives, coming together.</h3>
                   <p>Finding places, hearing everyone out, and putting it all into a plan.</p>
-                  <button
-                    className="text-button"
-                    onClick={() => {
-                      controller.current?.abort()
-                      setBusy(false)
-                      setNotice('Planning cancelled')
-                    }}
-                  >
-                    Cancel
-                  </button>
+                  <p>You can come back to this link. The result is saved for everyone.</p>
                 </div>
-              ) : completed ? (
+              ) : completed || partial.length > 0 ? (
                 <div className="transcript">
                   {transcript.map((turn, index) => (
                     <article className={'turn turn-' + turn.kind} key={index}>
@@ -443,7 +591,7 @@ function App() {
                       </div>
                     </article>
                   ))}
-                  {!finished && (
+                  {completed && !finished && (
                     <div className="reveal-status" role="status">
                       Revealing the completed round…
                     </div>
@@ -483,22 +631,12 @@ function App() {
                 aria-labelledby="itinerary-title"
               >
                 <div className="itinerary-top">
-                  <span>{completed.example ? 'An example evening' : 'Your evening'}</span>
+                  <span>{completed.example ? 'An example plan' : 'For your group'}</span>
                   {finished && (
                     <IconButton
                       label="Copy itinerary"
                       onClick={() =>
-                        void copy(
-                          [
-                            completed.result.plan.title,
-                            ...completed.result.plan.steps.map(
-                              (step) =>
-                                step.time + ' · ' + step.title + '\n' + step.what + '\n' + step.url,
-                            ),
-                            'The compromise: ' + completed.result.plan.compromise,
-                          ].join('\n\n'),
-                          'Itinerary copied',
-                        )
+                        void copy(formatPlan(completed.result.plan), 'Itinerary copied')
                       }
                     >
                       <Copy size={16} />
@@ -520,12 +658,40 @@ function App() {
                     <ol className="itinerary-steps">
                       {completed.result.plan.steps.map((step, index) => (
                         <li key={index}>
-                          <div className="step-time">{step.time}</div>
                           <a href={step.url} target="_blank" rel="noopener noreferrer">
                             <h3>{step.title}</h3>
                             <ArrowUpRight size={16} />
                           </a>
                           <p>{step.what}</p>
+                          {step.fit && (
+                            <div className="event-fit">
+                              {step.fit.map((fit) => (
+                                <div className={'fit-person fit-' + fit.vote} key={fit.memberId}>
+                                  <span
+                                    className="fit-mark"
+                                    title={
+                                      fit.vote === 'yes'
+                                        ? 'Appeals to'
+                                        : fit.vote === 'no'
+                                          ? 'Less suited to'
+                                          : 'Mixed fit'
+                                    }
+                                  >
+                                    {fit.vote === 'yes' ? (
+                                      <Check size={13} aria-label="Appeals to" />
+                                    ) : fit.vote === 'no' ? (
+                                      <Minus size={13} aria-label="Less suited to" />
+                                    ) : (
+                                      <CircleHelp size={13} aria-label="Mixed fit" />
+                                    )}
+                                  </span>
+                                  <p>
+                                    <strong>{fit.name}</strong> <span>— {fit.reason}</span>
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ol>
@@ -539,11 +705,9 @@ function App() {
                         <p>{completed.result.plan.compromise}</p>
                       </div>
                     </div>
-                    {completed.example && (
-                      <p className="example-footnote">
-                        Illustrative plan. Check venue hours and prices before heading out.
-                      </p>
-                    )}
+                    <p className="example-footnote">
+                      Check venue hours, prices, and availability before heading out.
+                    </p>
                   </>
                 ) : (
                   <div className="plan-wait">
@@ -576,11 +740,21 @@ function App() {
       {editing && (
         <Modal
           open
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            if (!saving) setEditing(null)
+          }}
           title={editable ? 'A little about ' + editable.name : 'Pull up a chair'}
           description="Tell your agent what matters to you. A few honest sentences are plenty."
         >
           <form className="member-form" onSubmit={saveMember}>
+            {formError && (
+              <p className="form-error" role="alert">
+                {formError}{' '}
+                <button className="text-button" type="button" onClick={() => void refresh()}>
+                  Refresh group
+                </button>
+              </p>
+            )}
             <div className="form-field">
               <label htmlFor="member-name">Name</label>
               <input
@@ -610,20 +784,14 @@ function App() {
                 <button
                   className="text-button remove-member"
                   type="button"
-                  onClick={() => {
-                    invalidate()
-                    setRoom((current) => ({
-                      ...current,
-                      members: current.members.filter((member) => member.id !== editable.id),
-                    }))
-                    setEditing(null)
-                  }}
+                  disabled={saving}
+                  onClick={() => void deleteMember(editable.id)}
                 >
                   Remove
                 </button>
               )}
-              <button className="button primary" type="submit">
-                Save
+              <button className="button primary" type="submit" disabled={saving}>
+                {saving ? 'Saving…' : 'Save'}
                 <Check size={16} />
               </button>
             </div>
@@ -633,10 +801,20 @@ function App() {
       {groupDialog && (
         <Modal
           open
-          onClose={() => setGroupDialog(null)}
+          onClose={() => {
+            if (!saving) setGroupDialog(null)
+          }}
           title={groupDialog === 'new' ? 'Start something together' : 'Your corner of Kusama'}
         >
           <form className="group-form" onSubmit={saveGroup}>
+            {formError && (
+              <p className="form-error" role="alert">
+                {formError}{' '}
+                <button className="text-button" type="button" onClick={() => void refresh()}>
+                  Refresh group
+                </button>
+              </p>
+            )}
             {groupDialog === 'new' && (
               <div className="form-field">
                 <label htmlFor="group-slug">Group link</label>
@@ -666,11 +844,11 @@ function App() {
               />
             </div>
             <p className="account-note">
-              Group profiles stay on this device while shared groups are being connected.
+              Anyone with the link can join and edit this group. No account needed.
             </p>
             <div className="dialog-footer">
-              <button className="button primary" type="submit">
-                {groupDialog === 'new' ? 'Create group' : 'Save'}
+              <button className="button primary" type="submit" disabled={saving}>
+                {saving ? 'Saving…' : groupDialog === 'new' || !exists ? 'Create group' : 'Save'}
                 <ArrowRight size={16} />
               </button>
             </div>
@@ -688,9 +866,9 @@ function App() {
             <div className="about-example">
               <Dotmark small />
               <p>
-                This example uses Maya, Dev, Sam, and Nazar’s sample blurbs in Brooklyn. Its votes
-                and itinerary are written sample data, not live agent results. Your edits stay on
-                this device.
+                The demo replays a real round recorded with Maya, Dev, Sam, and Nazar’s sample
+                blurbs in Brooklyn. Live plans search the web and are saved with your group.
+                Replaying the demo never changes your group’s profiles or plan.
               </p>
             </div>
             <button
@@ -700,7 +878,7 @@ function App() {
                 playExample()
               }}
             >
-              Play the example
+              Play the demo
               <ArrowRight size={16} />
             </button>
           </div>

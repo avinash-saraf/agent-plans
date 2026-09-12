@@ -17,3 +17,15 @@ model User {
 
   @@map("users")
 }
+
+model Group {
+  slug      String   @id
+  city      String
+  members   Json     @default("[]")
+  revision  Int      @default(0)
+  run       Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("kusama_groups")
+}

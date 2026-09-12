@@ -3,19 +3,45 @@ import { test } from 'node:test'
 import {
   DEMO_MEMBERS,
   DEMO_ROUND,
+  formatPlan,
   isVenueUrl,
   parseRound,
-  readRoom,
   seedRoom,
   slugFromPath,
   validateRoom,
 } from '../src/lib/room.ts'
-import { requestRound } from '../src/lib/planningApi.ts'
 
 test('accepts the six-turn contract and preserves vote text without parsing prose', () => {
   const round = structuredClone(DEMO_ROUND)
   round.transcript[1].text = 'No structured counts are required by the frontend.'
   assert.deepEqual(parseRound(round, DEMO_MEMBERS), round)
+})
+
+test('requires each person’s attributed reason on new plans and copies without a schedule', () => {
+  const round = structuredClone(DEMO_ROUND)
+  round.schemaVersion = 2
+  round.plan.steps = round.plan.steps.map((step) => ({
+    title: step.title,
+    what: step.what,
+    url: step.url,
+    fit: DEMO_MEMBERS.map((m) => ({
+      memberId: m.id,
+      name: m.name,
+      vote: 'yes',
+      reason: 'Fits a stated interest.',
+    })),
+  }))
+  assert.doesNotThrow(() => parseRound(round, DEMO_MEMBERS))
+  const copied = formatPlan({
+    ...round.plan,
+    steps: round.plan.steps.map((s) => ({ ...s, time: '7pm' })),
+  })
+  assert.doesNotMatch(copied, /7pm/)
+  assert.match(copied, /Maya: Fits a stated interest/)
+  round.plan.steps[0].fit![0].memberId = 'someone-else'
+  assert.throws(() => parseRound(round, DEMO_MEMBERS), /incomplete/)
+  round.plan.steps[0].fit = []
+  assert.throws(() => parseRound(round, DEMO_MEMBERS), /incomplete/)
 })
 test('rejects incomplete, reordered, and misattributed conversations', () => {
   const missing = structuredClone(DEMO_ROUND)
@@ -50,21 +76,6 @@ test('requires an explicit compromise and grounded link fields', () => {
   round.plan.compromise = ' '
   assert.throws(() => parseRound(round, DEMO_MEMBERS), /itinerary is incomplete/)
 })
-test('restores valid group data and isolates groups by slug', () => {
-  const room = { slug: 'friday-people', city: 'Queens', members: [DEMO_MEMBERS[0]] }
-  assert.deepEqual(readRoom(JSON.stringify(room), room.slug), room)
-  assert.deepEqual(readRoom(JSON.stringify(room), 'another-group'), seedRoom('another-group'))
-  assert.equal(seedRoom('another-group').members.length, 0)
-  assert.equal(seedRoom('hackathon').members.length, 4)
-})
-test('corrupted local data and duplicate identities recover to a safe room', () => {
-  assert.deepEqual(readRoom('{broken', 'hackathon'), seedRoom())
-  const duplicate = { ...seedRoom(), members: [DEMO_MEMBERS[0], DEMO_MEMBERS[0]] }
-  assert.deepEqual(readRoom(JSON.stringify(duplicate), 'hackathon'), seedRoom())
-  const seed = seedRoom()
-  seed.members[0].name = 'Changed'
-  assert.equal(DEMO_MEMBERS[0].name, 'Maya')
-})
 test('planning needs exactly four complete blurbs and a city', () => {
   assert.equal(validateRoom(seedRoom()), null)
   assert.match(validateRoom({ ...seedRoom(), city: ' ' })!, /city/)
@@ -74,10 +85,4 @@ test('planning needs exactly four complete blurbs and a city', () => {
   assert.match(validateRoom(room)!, /context/)
   assert.equal(slugFromPath('/g/Friday-People'), 'friday-people')
   assert.equal(slugFromPath('/g/../../escape'), 'hackathon')
-})
-test('an unconfigured planning route fails explicitly rather than returning sample data', async () => {
-  await assert.rejects(
-    requestRound({ city: 'Brooklyn', members: DEMO_MEMBERS }),
-    /still being connected/,
-  )
 })

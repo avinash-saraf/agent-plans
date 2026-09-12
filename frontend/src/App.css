@@ -555,11 +555,35 @@ h1 span {
 .itinerary-steps li + li {
   margin-top: 24px;
 }
-.step-time {
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
+.event-fit {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+}
+.fit-person {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.fit-mark {
+  display: inline-flex;
+  align-self: flex-start;
+  flex-shrink: 0;
+  padding-top: 3px;
+  color: var(--secondary);
+}
+.fit-maybe .fit-mark,
+.fit-no .fit-mark {
   color: var(--muted);
-  margin-bottom: 8px;
+}
+.itinerary-steps .fit-person p {
+  margin: 0;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.fit-person strong {
+  font-weight: 550;
+  color: var(--foreground, #242424);
 }
 .itinerary-steps a {
   display: flex;

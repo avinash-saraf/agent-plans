@@ -11,10 +11,16 @@ export interface TranscriptTurn {
   text: string
 }
 export interface RoundResult {
+  schemaVersion?: 2
   transcript: TranscriptTurn[]
   plan: {
     title: string
-    steps: { time: string; what: string; title: string; url: string }[]
+    steps: {
+      what: string
+      title: string
+      url: string
+      fit?: { memberId: string; name: string; vote: 'yes' | 'maybe' | 'no'; reason: string }[]
+    }[]
     compromise: string
   }
 }
@@ -23,11 +29,6 @@ export interface Room {
   city: string
   members: RoomMember[]
 }
-export interface RunPlanInput {
-  city: string
-  members: RoomMember[]
-}
-export const ROOM_STORAGE_KEY = 'kusama.rooms.v2'
 export const DEMO_MEMBERS: RoomMember[] = [
   {
     id: 'maya',
@@ -108,34 +109,44 @@ export function parseRound(value: unknown, members: RoomMember[]): RoundResult {
         record(step) &&
         text(step.title) &&
         text(step.what) &&
-        text(step.time) &&
-        isVenueUrl(step.url),
+        isVenueUrl(step.url) &&
+        (value.schemaVersion !== 2 ||
+          (!('time' in step) &&
+            Array.isArray(step.fit) &&
+            step.fit.length === members.length &&
+            members.every((member, index) => {
+              const fit = (step.fit as unknown[])[index]
+              return (
+                record(fit) &&
+                fit.memberId === member.id &&
+                fit.name === member.name &&
+                ['yes', 'maybe', 'no'].includes(String(fit.vote)) &&
+                text(fit.reason) &&
+                fit.reason.length <= 160
+              )
+            }))),
     )
   )
     throw new Error('The itinerary is incomplete. Please try again.')
   return value as unknown as RoundResult
 }
 export const DEMO_ROUND = parseRound(example, DEMO_MEMBERS)
-export function readRoom(raw: string | null, slug: string): Room {
-  if (!raw) return seedRoom(slug)
-  try {
-    const value: unknown = JSON.parse(raw)
-    if (
-      !record(value) ||
-      value.slug !== slug ||
-      !text(value.city) ||
-      !Array.isArray(value.members) ||
-      value.members.length > 4 ||
-      !value.members.every(
-        (member) => record(member) && text(member.id) && text(member.name) && text(member.context),
-      ) ||
-      new Set(value.members.map((member) => member.id)).size !== value.members.length
-    )
-      return seedRoom(slug)
-    return value as unknown as Room
-  } catch {
-    return seedRoom(slug)
-  }
+export function formatPlan(plan: RoundResult['plan']): string {
+  return [
+    plan.title,
+    ...plan.steps.map((step) =>
+      [
+        step.title,
+        step.what,
+        ...(step.fit || []).map(
+          (fit) =>
+            `${fit.vote === 'yes' ? '✓' : fit.vote === 'no' ? '−' : '~'} ${fit.name}: ${fit.reason}`,
+        ),
+        step.url,
+      ].join('\n'),
+    ),
+    'The compromise: ' + plan.compromise,
+  ].join('\n\n')
 }
 export function validateRoom(room: Room): string | null {
   if (!room.city.trim()) return 'Add a city first.'
